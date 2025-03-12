@@ -1,0 +1,943 @@
+📂 NOME PROGETTO/ (La base per i progetti MVC)
+
+* 📂 app/ (Contiene le parti logiche del progetto)
+   * 📂 controllers/ (Gestisce le richieste)
+      * 📄 HomeController.php
+      * 📄 UserController.php
+      * 📄 AdminController.php
+
+   * 📂 models/  (Gestisce i dati e il database)
+      * 📄 User.php
+
+   * 📂 views/ (Mostra i dati all'utente)
+      * 📂 errors/
+         * 📄 404.php
+         * 📄 500.php
+      * 📂 layouts/ (Template comune per le pagine)
+         * 📄 header.php
+         * 📄 footer.php
+      * 📂 home/
+         * 📄 index.php
+      * 📂 user/
+         * 📄 login.php
+         * 📄 register.php
+         * 📄 profile.php
+
+* 📂 core/  (Componenti fondamentali del framework)
+   * 📄 Router.php (Gestisce le route)
+   * 📄 Controller.php (Classe base per i controller)
+   * 📄 Model.php (Classe base per i modelli)
+   * 📄 Auth.php
+   * 📄 Helper.php
+   * 📄 Logger.php
+   * 📄 Roles.php
+   * 📄 Notification.php
+   * 📄 Session.php
+
+* 📂 config/ (Configurazione globale)
+   * 📄 config.php
+   * 📄 routes.php
+
+* 📂 public/ (Cartella accessibile al pubblico, per asset e index.php)
+   * 📂 assets/
+      * 📂 css/
+         * 📄 style.css
+      * 📂 img/
+      * 📂 js/
+         * 📄 script.js
+   * 📄 .htaccess (Reindirizzamento URL per eliminare index.php dagli URL)
+   * 📄 index.php
+   * 📄 manifest.json
+   * 📄 robots.txt
+   * 📄 sitemap.xml
+* 📂 logs/ (File di log per errori e debugging)
+   * 📄 error.log
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+
+📌 1️⃣ CONFIGURAZIONE GLOBALE (config.php)
+📌 Motivo: Memorizza impostazioni di sistema, come connessione al database e URL di base.
+
+📂 config/config.php
+
+<?php
+/**
+ * CONFIGURAZIONE GLOBALE DEL PROGETTO
+ * -----------------------------------
+ * 🔹 Memorizza le configurazioni di sistema.
+ * 🔹 Gestisce la connessione al database.
+ * 🔹 Definisce costanti per URL e percorsi.
+ */
+
+define('BASE_URL', 'http://localhost/mvc/'); // Modifica per l'URL del tuo progetto
+
+// Impostazioni Database
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'mvc_project');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+
+// Connessione al database con PDO
+try {
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8", DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Errore di connessione al database: " . $e->getMessage());
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 2️⃣ GESTIONE ROUTING 
+      (Router.php)
+
+📌 Motivo: Gestisce l'instradamento delle richieste verso il controller corretto.
+
+📂 core/Router.php
+
+<?php
+/**
+ * ROUTER - Gestisce le route dell'applicazione
+ * --------------------------------------------
+ * 🔹 Intercetta l'URL richiesto.
+ * 🔹 Esegue il Controller e il metodo corrispondente.
+ */
+
+<?php
+require_once 'Controller.php';  // 🔹 Necessario perché i controller ereditano da Controller
+
+
+class Router {
+    public static function route($url) {
+        $routes = require '../config/routes.php'; // Carica il file delle route
+        $url = trim($url, '/');
+
+        if (isset($routes[$url])) {
+            $controllerName = $routes[$url]['controller'];
+            $method = $routes[$url]['method'];
+        } else {
+            // 🔥 Carichiamo la pagina 404 personalizzata
+            http_response_code(404); // Impostiamo il codice HTTP 404
+            require_once "../app/views/errors/404.php";
+            exit; // 🔴 Fermiamo l'esecuzione
+        }
+
+        require_once "../app/controllers/$controllerName.php";
+        $controller = new $controllerName();
+        call_user_func([$controller, $method]);
+    }
+}
+?>
+
+📂 config/routes.php
+
+<?php
+
+return [
+    '' => ['controller' => 'HomeController', 'method' => 'index'],
+    'user/login' => ['controller' => 'UserController', 'method' => 'login'],
+    'user/register' => ['controller' => 'UserController', 'method' => 'register'],
+    'user/profile' => ['controller' => 'UserController', 'method' => 'profile'],
+
+    // ✨ NUOVE ROTTE da aggiungere qui!
+    'blog' => ['controller' => 'BlogController', 'method' => 'index'],
+    'blog/post' => ['controller' => 'BlogController', 'method' => 'showPost'],
+    'about' => ['controller' => 'PageController', 'method' => 'about'],
+    'contact' => ['controller' => 'PageController', 'method' => 'contact'],
+];
+💡 Nota: Per aggiungere nuove route, basta aggiungere una nuova voce a questo array.
+
+🎯 Vantaggi di questo sistema
+
+✅ Centralizzazione delle route
+Tutte le route sono in un unico file (routes.php), quindi non devi cercarle dentro Router.php.
+
+✅ Facile da modificare
+Se vuoi aggiungere una nuova rotta, basta modificarla in routes.php senza dover modificare il codice del router.
+
+✅ Separazione della logica
+Router.php si occupa solo di instradare la richiesta, mentre la definizione delle route è gestita da routes.php.
+
+✅ Più leggibile e scalabile
+Se il progetto cresce e ha molte rotte, gestirle in un array è molto più leggibile e organizzato rispetto a scrivere codice dentro il Router.php.
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 3️⃣ CONTROLLER BASE 
+       (Controller.php)
+
+📌 Motivo: Fornisce una classe base per i controller, semplificando il caricamento delle view.
+
+📂 core/Controller.php
+
+<?php
+/**
+ * CLASSE BASE CONTROLLER
+ * ----------------------
+ * 🔹 Ogni controller eredita da questa classe.
+ * 🔹 Permette di caricare le view più facilmente.
+ */
+
+ require_once 'Model.php';  // 🔹 Necessario per l'accesso ai modelli
+
+class Controller {
+    protected function view($view, $data = []) {
+        require_once "../app/views/$view.php";
+    }
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 4️⃣ HOME CONTROLLER 
+      (HomeController.php)
+
+📌 Motivo: Gestisce la home del sito.
+
+📂 app/controllers/HomeController.php
+
+<?php
+require_once '../core/Controller.php';
+
+class HomeController extends Controller {
+    public function index() {
+        $this->view('home/index');
+    }
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 5️⃣ MODELLO BASE 
+       (Model.php)
+
+📌 Motivo: Fornisce una classe base per tutti i modelli che interagiscono con il database.
+
+📂 core/Model.php
+
+<?php
+require '../config/config.php';
+
+/**
+ * CLASSE BASE MODEL
+ * -----------------
+ * 🔹 Tutti i modelli ereditano da questa classe.
+ * 🔹 Permette di eseguire query più facilmente.
+ */
+
+class Model {
+    protected $pdo;
+
+    public function __construct() {
+        global $pdo;
+        $this->pdo = $pdo;
+    }
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 6️⃣ LAYOUT HTML STANDARD 
+       (header.php, footer.php)
+
+📂 app/views/layouts/header.php
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title><?= $title ?? 'Il mio sito MVC' ?></title>
+    <link rel="stylesheet" href="<?= BASE_URL ?>public/assets/css/style.css">
+</head>
+<body>
+<header>
+    <h1>Benvenuto nel mio framework MVC!</h1>
+</header>
+<main>
+
+📂 app/views/layouts/footer.php
+
+</main>
+<footer>
+    <p>&copy; <?= date('Y') ?> - Tutti i diritti riservati.</p>
+</footer>
+</body>
+</html>
+
+📂 app/views/home/index.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h2>Questa è la home page!</h2>
+<?php require '../app/views/layouts/footer.php'; ?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 7️⃣ SISTEMA DI AUTENTICAZIONE UTENTI
+       (Auth.php)
+
+📌 Motivo:
+✅ Permette di gestire login, logout e registrazione utenti.
+✅ Utilizza sessioni per mantenere l’utente loggato.
+✅ Hash delle password per maggiore sicurezza.
+
+📂 core/Auth.php
+
+<?php
+require_once '../config/config.php';
+require_once 'Session.php';
+
+/**
+ * SISTEMA DI AUTENTICAZIONE UTENTI
+ * --------------------------------
+ * 🔹 Gestisce login, logout e sessioni.
+ * 🔹 Protegge l'accesso alle pagine riservate.
+ * 🔹 Usa hashing per le password.
+ */
+
+class Auth {
+    /**
+     * 📌 Login utente
+     */
+    public static function login($email, $password) {
+        global $pdo;
+        $stmt = $pdo->prepare("SELECT * FROM utenti WHERE email = :email");
+        $stmt->execute([':email' => $email]);
+        $user = $stmt->fetch();
+
+        if ($user && password_verify($password, $user['password'])) {
+            Session::set('user', $user);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 📌 Controlla se un utente è loggato
+     */
+    public static function isLoggedIn() {
+        return Session::get('user') !== null;
+    }
+
+    /**
+     * 📌 Logout utente
+     */
+    public static function logout() {
+        Session::destroy();
+    }
+
+    /**
+     * 📌 Recupera i dati dell'utente loggato
+     */
+    public static function getUser() {
+        return Session::get('user');
+    }
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 8️⃣ SISTEMA DI GESTIONE SESSIONI 
+       (Session.php)
+
+📌 Motivo:
+✅ Permette di gestire le sessioni in modo sicuro.
+✅ Evita problemi di sessione non inizializzata.
+✅ Permette di leggere e scrivere dati di sessione in modo più pulito.
+
+📂 core/Session.php
+
+<?php
+/**
+ * GESTIONE SESSIONI
+ * -----------------
+ * 🔹 Controlla e gestisce le sessioni in tutto il progetto.
+ * 🔹 Avvia automaticamente la sessione se non è già attiva.
+ */
+
+class Session {
+    /**
+     * 📌 Avvia la sessione se non è già stata avviata
+     */
+    public static function start() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+    }
+
+    /**
+     * 📌 Imposta una variabile di sessione
+     */
+    public static function set($key, $value) {
+        $_SESSION[$key] = $value;
+    }
+
+    /**
+     * 📌 Recupera una variabile di sessione
+     */
+    public static function get($key) {
+        return $_SESSION[$key] ?? null;
+    }
+
+    /**
+     * 📌 Distrugge la sessione (logout)
+     */
+    public static function destroy() {
+        session_unset();
+        session_destroy();
+    }
+}
+
+// 📌 Avviamo la sessione automaticamente
+Session::start();
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 9️⃣ TEMPLATE STANDARD PER I FORM DI LOGIN E REGISTRAZIONE
+
+📌 Motivo:
+✅ Creiamo un modello base di form HTML per login e registrazione.
+✅ Facile da riutilizzare nei progetti.
+
+📂 app/views/user/login.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h2>Login</h2>
+<form action="<?= BASE_URL ?>user/authenticate" method="POST">
+    <label>Email:</label>
+    <input type="email" name="email" required>
+    
+    <label>Password:</label>
+    <input type="password" name="password" required>
+
+    <button type="submit">Accedi</button>
+</form>
+<a href="<?= BASE_URL ?>user/register">Non hai un account? Registrati</a>
+<?php require '../app/views/layouts/footer.php'; ?>
+
+📂 app/views/user/register.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h2>Registrazione</h2>
+<form action="<?= BASE_URL ?>user/store" method="POST">
+    <label>Nome:</label>
+    <input type="text" name="name" required>
+
+    <label>Email:</label>
+    <input type="email" name="email" required>
+
+    <label>Password:</label>
+    <input type="password" name="password" required>
+
+    <button type="submit">Registrati</button>
+</form>
+<a href="<?= BASE_URL ?>user/login">Hai già un account? Accedi</a>
+<?php require '../app/views/layouts/footer.php'; ?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 🔟 FILE .htaccess PER RISCRIVERE URL
+📌 Motivo:
+✅ Permette di eliminare index.php dagli URL.
+✅ Abilita il mod_rewrite per URL più puliti.
+
+📂 public/.htaccess
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)$ index.php?url=$1 [QSA,L]
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 🔟+1 GESTIONE ERRORI E LOGGING (Logger.php)
+📌 Motivo:
+✅ Registra errori critici e avvisi nei file di log.
+✅ Aiuta nel debugging senza mostrare errori agli utenti.
+
+📂 core/Logger.php
+
+<?php
+/**
+ * GESTIONE LOG
+ * -----------
+ * 🔹 Registra errori critici e debugging.
+ * 🔹 Salva i log in un file per monitorare il sito.
+ */
+
+class Logger {
+    /**
+     * 📌 Scrive un messaggio nel file di log
+     */
+    public static function log($level, $message, $context = []) {
+        $logFile = "../logs/error.log";
+        $date = date('Y-m-d H:i:s');
+        $contextStr = json_encode($context);
+        $logEntry = "[$date] $level: $message $contextStr\n";
+        file_put_contents($logFile, $logEntry, FILE_APPEND);
+    }
+
+    /**
+     * 📌 Logga errori critici
+     */
+    public static function error($message, $context = []) {
+        self::log('ERROR', $message, $context);
+    }
+}
+?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 🔟+2 FILE DI STILE CSS STANDARD 
+         (style.css)
+
+📌 Motivo:
+✅ Un CSS base per ogni nuovo progetto.
+
+📂 public/assets/css/style.css
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f4f4;
+}
+
+header {
+    background: #333;
+    color: white;
+    padding: 10px;
+    text-align: center;
+}
+
+form {
+    background: white;
+    padding: 20px;
+    width: 300px;
+    margin: auto;
+    box-shadow: 0px 0px 10px rgba(0,0,0,0.1);
+}
+
+input {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+button {
+    background: #28a745;
+    color: white;
+    padding: 10px;
+    border: none;
+    width: 100%;
+}
+
+-----------------------------------------------------------------------------------------------------------------
+
+📌 🔟+3 SISTEMA DI NOTIFICHE 
+      (Notifications.php)
+
+📌 Motivo:
+✅ Permette di mostrare messaggi di successo, errore, avviso, info all’utente.
+✅ Usa le sessioni, quindi i messaggi persistono tra le pagine.
+✅ Può essere usato per notificare esiti di login, registrazione, errori, etc.
+
+📂 core/Notifications.php
+
+<?php
+/**
+ * SISTEMA DI NOTIFICHE
+ * ---------------------
+ * 🔹 Memorizza messaggi temporanei nella sessione.
+ * 🔹 Permette di mostrare notifiche all'utente.
+ */
+
+class Notifications {
+    /**
+     * 📌 Aggiunge una notifica alla sessione
+     */
+    public static function add($type, $message) {
+        if (!isset($_SESSION['notifications'])) {
+            $_SESSION['notifications'] = [];
+        }
+        $_SESSION['notifications'][] = ['type' => $type, 'message' => $message];
+    }
+
+    /**
+     * 📌 Recupera e rimuove tutte le notifiche
+     */
+    public static function get() {
+        $messages = $_SESSION['notifications'] ?? [];
+        unset($_SESSION['notifications']);
+        return $messages;
+    }
+}
+?>
+
+📌 Ora possiamo usare Notifications::add() nei nostri controller!
+
+📂 Esempio in UserController.php
+
+if ($registrationSuccess) {
+    Notifications::add('success', 'Registrazione completata con successo!');
+    header("Location: " . BASE_URL . "user/login");
+    exit;
+} else {
+    Notifications::add('error', 'Errore durante la registrazione.');
+}
+
+📂 Esempio per mostrare notifiche in layouts/header.php
+
+<?php if ($messages = Notifications::get()): ?>
+    <div class="notifications">
+        <?php foreach ($messages as $msg): ?>
+            <div class="alert alert-<?= $msg['type'] ?>">
+                <?= $msg['message'] ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
+📂 public/assets/css/style.css (Aggiungiamo uno stile per le notifiche)
+
+.notifications { margin: 10px; }
+.alert { padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+.alert-success { background: #28a745; color: white; }
+.alert-error { background: #dc3545; color: white; }
+
+✅ Ora il sito può mostrare notifiche in modo elegante!
+
+📌 🔟+4 GESTIONE RUOLI UTENTE 
+        (Roles.php)
+📌 Motivo:
+✅ Permette di assegnare ruoli (Admin, User, Editor, etc.) agli utenti.
+✅ Protegge le pagine riservate ai soli Admin.
+✅ Può essere usato per mostrare diverse funzioni in base al ruolo.
+
+📂 core/Roles.php
+
+<?php
+require_once 'Auth.php';
+
+/**
+ * GESTIONE RUOLI UTENTE
+ * ---------------------
+ * 🔹 Controlla se l'utente ha i permessi richiesti.
+ * 🔹 Protegge le pagine riservate.
+ */
+
+class Roles {
+    /**
+     * 📌 Controlla se l'utente ha un certo ruolo
+     */
+    public static function hasRole($role) {
+        $user = Auth::getUser();
+        return $user && $user['role'] === $role;
+    }
+
+    /**
+     * 📌 Protegge le pagine per Admin
+     */
+    public static function requireAdmin() {
+        if (!self::hasRole('admin')) {
+            Notifications::add('error', 'Accesso negato. Solo gli admin possono accedere.');
+            header("Location: " . BASE_URL);
+            exit;
+        }
+    }
+}
+?>
+
+📂 Esempio di utilizzo in AdminController.php
+
+require_once '../core/Roles.php';
+
+class AdminController extends Controller {
+    public function dashboard() {
+        Roles::requireAdmin();
+        $this->view('admin/dashboard');
+    }
+}
+
+📂 Modifica della tabella utenti nel database (utenti)
+
+ALTER TABLE utenti ADD COLUMN role ENUM('admin', 'editor', 'user') DEFAULT 'user';
+
+📌 Ora possiamo proteggere sezioni riservate solo agli admin!
+
+📌 🔟+5 FILE PER IL BROWSER
+📌 Motivo:
+✅ Questi file aiutano i motori di ricerca, i browser e i dispositivi a riconoscere e ottimizzare il sito.
+
+📂 public/robots.txt (Guida i motori di ricerca)
+
+User-agent: *
+Disallow: /admin/
+Allow: /
+Sitemap: http://localhost/mvc/sitemap.xml
+
+📂 public/manifest.json (Descrive il sito per i dispositivi mobili)
+
+{
+  "name": "Il Mio Sito MVC",
+  "short_name": "MVC Site",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#333333",
+  "icons": [
+    {
+      "src": "/assets/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+
+📂 public/favicon.ico (Favicon per il browser, scaricabile da favicon.io)
+
+📂 public/sitemap.xml (Aiuta Google a indicizzare il sito)
+
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>http://localhost/mvc/</loc>
+        <lastmod>2024-03-11</lastmod>
+        <priority>1.0</priority>
+    </url>
+    <url>
+        <loc>http://localhost/mvc/user/login</loc>
+        <lastmod>2024-03-11</lastmod>
+        <priority>0.8</priority>
+    </url>
+</urlset>
+
+✅ Ora il sito è ottimizzato per SEO, mobile e motori di ricerca!
+
+-----------------------------------------------------------------------------------------------------------------
+
+✅ Creare la pagina 404 personalizzata
+Ora, creiamo una pagina HTML personalizzata da mostrare quando una rotta non esiste.
+
+📂 app/views/errors/404.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h1>Errore 404</h1>
+<p>La pagina che stai cercando non esiste.</p>
+<a href="<?= BASE_URL ?>">Torna alla Home</a>
+<?php require '../app/views/layouts/footer.php'; ?>
+
+🔥 Cosa succede ora?
+Se un utente cerca una rotta inesistente (es. http://localhost/mvc/rotta-non-esistente), 
+invece di vedere un semplice die("Errore 404"), verrà automaticamente mostrata la pagina 404 personalizzata.
+La pagina 404 avrà lo stesso header e footer del resto del sito, mantenendo il layout coerente.
+
+🎯 Bonus: Reindirizzamento automatico alla home dopo qualche secondo
+Se vuoi che dopo qualche secondo la pagina 404 reindirizzi l'utente alla home, puoi aggiungere questo script nel file 404.php:
+
+📂 app/views/errors/404.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h1>Errore 404</h1>
+<p>La pagina che stai cercando non esiste. Verrai reindirizzato alla home tra <span id="countdown">5</span> secondi...</p>
+<a href="<?= BASE_URL ?>">Torna alla Home</a>
+
+<script>
+    let count = 5;
+    const countdown = document.getElementById("countdown");
+
+    setInterval(() => {
+        count--;
+        countdown.textContent = count;
+        if (count <= 0) {
+            window.location.href = "<?= BASE_URL ?>";
+        }
+    }, 1000);
+</script>
+
+<?php require '../app/views/layouts/footer.php'; ?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+3️⃣ Logging degli errori migliorato
+📌 Motivo: Attualmente Logger.php salva solo messaggi di errore, ma non gestisce eccezioni.
+
+✅ Soluzione: Creare una funzione logException in Logger.php.
+
+📂 core/Logger.php
+
+class Logger {
+    public static function log($level, $message, $context = []) {
+        $logFile = "../logs/error.log";
+        $date = date('Y-m-d H:i:s');
+        $contextStr = json_encode($context);
+        $logEntry = "[$date] $level: $message $contextStr\n";
+        file_put_contents($logFile, $logEntry, FILE_APPEND);
+    }
+
+    public static function error($message, $context = []) {
+        self::log('ERROR', $message, $context);
+    }
+
+    public static function logException($exception) {
+        self::log('EXCEPTION', $exception->getMessage(), [
+            'file' => $exception->getFile(),
+            'line' => $exception->getLine(),
+            'trace' => $exception->getTraceAsString()
+        ]);
+    }
+}
+
+
+🔍 Cosa cambia rispetto a prima?
+Aggiunto controllo per verificare se il file del controller esiste
+🔹 Se il controller non esiste, viene lanciata un'eccezione (throw new Exception(...)), che sarà gestita in index.php.
+Aggiunto controllo per verificare se il metodo esiste nel controller
+🔹 Se il metodo richiesto non è presente, viene lanciata un'eccezione, evitando errori fatali.
+
+🔥 Ora gli errori del Router vengono catturati in index.php
+Con questa modifica, Router.php non muore con die() o exit(), ma lascia che sia index.php a gestire gli errori.
+
+📂 public/index.php
+
+<?php
+
+require_once '../config/config.php';  // 🔹 Configurazione globale
+require_once '../core/Session.php';   // 🔹 Avvia le sessioni
+require_once '../core/Router.php';    // 🔹 Gestione delle route
+require_once '../core/Logger.php';    // 🔹 Log degli errori
+require_once '../core/Auth.php';      // 🔹 (Opzionale) Autenticazione
+
+try {
+    // 🔥 Avvia il router e gestisce la richiesta
+    Router::route($_GET['url'] ?? '');
+} catch (Exception $e) {
+    Logger::logException($e);
+    http_response_code(500);
+    require_once "../app/views/errors/500.php";
+    exit;
+}
+
+
+
+📌 Creare la pagina 500.php
+Ora, creiamo una pagina personalizzata per gli errori interni del server.
+
+📂 app/views/errors/500.php
+
+<?php require '../app/views/layouts/header.php'; ?>
+<h1>Errore 500</h1>
+<p>Si è verificato un errore interno al server. Stiamo lavorando per risolverlo.</p>
+<a href="<?= BASE_URL ?>">Torna alla Home</a>
+<?php require '../app/views/layouts/footer.php'; ?>
+
+-----------------------------------------------------------------------------------------------------------------
+
+
+📌 1️⃣ Come trasformare il tuo progetto MVC in una PWA
+Per rendere il tuo progetto una vera Web App, devi aggiungere:
+
+Un file service-worker.js per gestire la cache e le richieste offline.
+Il file manifest.json (già presente) per definire la web app.
+Registrare il Service Worker in index.php o script.js.
+
+
+✅ 2️⃣ Creare il Service Worker
+📂 public/service-worker.js
+
+const CACHE_NAME = 'mvc-app-cache-v1';
+const urlsToCache = [
+    '/',
+    '/public/assets/css/style.css',
+    '/public/assets/js/script.js',
+    '/public/assets/img/logo.png',
+    '/public/index.php',
+    '/app/views/errors/404.php',
+    '/app/views/errors/500.php'
+];
+
+// 📌 Installa il Service Worker e cachea le risorse
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Caching assets...');
+                return cache.addAll(urlsToCache);
+            })
+    );
+});
+
+// 📌 Intercetta le richieste e serve la cache se offline
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request)
+            .then(response => response || fetch(event.request))
+    );
+});
+
+// 📌 Aggiorna la cache quando viene installata una nuova versione
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cache => {
+                    if (cache !== CACHE_NAME) {
+                        console.log('Eliminando vecchia cache:', cache);
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
+    );
+});
+
+✅ 3️⃣ Registrare il Service Worker
+📂 public/assets/js/script.js (o in header.php se preferisci)
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.log('Service Worker registrato con successo:', reg))
+        .catch(err => console.error('Errore nella registrazione del Service Worker:', err));
+}
+
+✅ 4️⃣ Aggiungere il Service Worker in manifest.json
+📂 public/manifest.json (Già presente, ma aggiungiamo il Service Worker)
+{
+  "name": "MVC Web App",
+  "short_name": "MVCApp",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#333333",
+  "icons": [
+    {
+      "src": "/public/assets/img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/public/assets/img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "serviceworker": {
+    "src": "/service-worker.js",
+    "scope": "/",
+    "type": "module"
+  }
+}
+
+🎯 🚀 Cosa ottieni con il Service Worker?
+✅ La tua Web App funziona anche offline!
+✅ Le risorse statiche vengono cacheate, migliorando la velocità.
+✅ Gli utenti possono installare l’app sul telefono come una normale app.
+✅ Migliori l’esperienza utente con una PWA.
