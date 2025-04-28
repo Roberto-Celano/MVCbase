@@ -1,7 +1,10 @@
 # 🏗️ MVCbase
-
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-%23777BB4.svg?style=for-the-badge&logo=php&logoColor=white" alt="PHP Badge"/>
+  <img src="https://img.shields.io/badge/MVC%20Architecture-%23007ACC.svg?style=for-the-badge&logo=code&logoColor=white" alt="MVC Badge"/>
+  <img src="https://img.shields.io/badge/Backend%20Development-%23FFA500.svg?style=for-the-badge&logo=server&logoColor=white" alt="Backend Badge"/>
+</p>
 Un progetto di base per la realizzazione di applicazioni web in architettura **MVC** (Model-View-Controller) scritto in **PHP**.
-
 ---
 
 ## 📂 Struttura del progetto
@@ -41,9 +44,13 @@ Un progetto di base per la realizzazione di applicazioni web in architettura **M
 
 3. Modifica i parametri di configurazione in /config.
 
+---
+
 ## 📈 Stato di sviluppo
 - ✅ *Struttura di base pronta*
 - **🚀 Prossimi miglioramenti:** *gestione degli errori avanzata, validazione dei dati, sessioni utente.*
+
+---
 
 ## 📬 Contatti
   📧 **Email:** [r.celano@robertocelano.dev](mailto:r.celano@robertocelano.dev)
@@ -52,8 +59,12 @@ Un progetto di base per la realizzazione di applicazioni web in architettura **M
 
   🌐 **Portfolio:** [robertocelano.dev](https://www.robertocelano.dev)
 
+---
+
 ## ⭐ Supporta il progetto!
 Se ti piace il lavoro svolto, lascia una ⭐ su GitHub per supportare il progetto e il mio percorso di crescita!
+
+---
 
 ## 👨‍💻 Autore
 Realizzato da [Roberto Celano](https://www.robertocelano.dev)  
